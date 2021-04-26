@@ -8,6 +8,8 @@ The app's main view controller.
 import UIKit
 import Vision
 
+let localData = UserDefaults.standard
+
 @available(iOS 14.0, *)
 class MainViewController: UIViewController {
     /// 显示视频帧顶部姿势的全屏视图
@@ -27,6 +29,9 @@ class MainViewController: UIViewController {
 
     /// 用户点击按钮显示摘要视图
     @IBOutlet weak var summaryButton: UIButton!
+    
+    /// 输入api按钮
+    @IBOutlet weak var apiButton: UIButton!
 
     /// 用户点击该按钮可在正面和背面之间切换
     /// cameras.
@@ -58,7 +63,7 @@ extension MainViewController {
         UIApplication.shared.isIdleTimerDisabled = true
 
         // 堆栈和按钮视图的圆角。
-        let views = [labelStack, buttonStack, cameraButton, summaryButton]
+        let views = [labelStack, buttonStack, cameraButton, summaryButton, apiButton]
         views.forEach { view in
             view?.layer.cornerRadius = 10
             view?.overrideUserInterfaceStyle = .dark
@@ -132,7 +137,34 @@ extension MainViewController {
         // 通过在显示摘要视图时禁用相机来停止视频馈送。
         videoCapture.isEnabled = false
     }
+    
+    //本地保存api地址按钮
+    @IBAction func onApiButtonTapped(_: Any) {
+        
+        let alertController = UIAlertController(title: "设置API",
+                                    message: "", preferredStyle: .alert)
+        alertController.addTextField {
+            (textField: UITextField!) -> Void in
+            textField.placeholder = "请输入API"
+        }
+        let cancelAction = UIAlertAction(title: "取消", style: .cancel, handler: nil)
+        let okAction = UIAlertAction(title: "保存", style: .default, handler: {
+            action in
+            //也可以用下标的形式获取textField let login = alertController.textFields![0]
+            let apiData = alertController.textFields!.first!
+            let fullStr = apiData.text! as NSString
+            //print("api url：\(fullStr)")
+            localData.setValue(fullStr, forKey: "apiUrl")
+        })
+        alertController.addAction(cancelAction)
+        alertController.addAction(okAction)
+        self.present(alertController, animated: true, completion: nil)
+        
+    }
+    
 }
+
+
 
 // MARK: - Video Capture Delegate
 extension MainViewController: VideoCaptureDelegate {
@@ -181,10 +213,10 @@ extension MainViewController: VideoProcessingChainDelegate {
         // 在与pose publisher不同的队列上渲染pose。
         DispatchQueue.global(qos: .userInteractive).async {
             
-            if poseArray.count < 2 {
+            //if poseArray.count < 2 {
                 //获取的数据转换为json
                 poseArrayToJsonList(poses)
-            }
+            //}
             // 把姿势画到框架上
             self.drawPoses(poses, onto: frame)
         }
@@ -193,7 +225,6 @@ extension MainViewController: VideoProcessingChainDelegate {
 
 //获取的pose数据转换为 json array
 var poseArray = [String]()
-var landmarkItemArray = [String]()
 //遍历pose数组
 private func poseArrayToJsonList(_ poses: [Pose]?){
     guard let poses = poses else { return }
@@ -211,7 +242,37 @@ private func poseArrayToJsonList(_ poses: [Pose]?){
             //print("item json = \(jsonString)")
         }
     }
-    print("item json = \(poseArray)")
+    //print("item json = \(poseArray)")
+    requestHttpServer(poseArray)
+}
+
+//访问http api -- 未完成
+func requestHttpServer (_ jsonString: [String]) {
+    
+    let apiUrl = localData.string(forKey: "apiUrl")! as NSString
+    
+    if(apiUrl.length == 0 || apiUrl == "zccv" || jsonString.count == 0){
+        return
+    }
+    
+    let url = URL(string: apiUrl as String)
+    var request = URLRequest(url: url!)
+    request.httpMethod = "POST"
+    
+    //print("apiUrl = \(apiUrl)")
+    //print("body = \(body)")
+    
+    let params = ["poseData": jsonString]
+
+    request.httpBody = try! JSONSerialization.data(withJSONObject: params, options: [])
+    request.addValue("application/json", forHTTPHeaderField:"Content-Type")
+    request.addValue("application/json", forHTTPHeaderField:"Accept")
+    
+    NSURLConnection.sendAsynchronousRequest(request, queue: OperationQueue.main) {(response, data, error) in
+        guard let data = data else { return }
+        print(String(data: data, encoding: .utf8)!)
+    }
+    
 }
 
 
@@ -288,20 +349,5 @@ extension MainViewController {
 
         // 在主线程上更新UI的全屏图像视图。
         DispatchQueue.main.async { self.imageView.image = frameWithPosesRendering }
-    }
-    
-    //访问http api -- 未完成
-    func requestHttpServer (_ jsonString:String) {
-        let url = URL(string: "http://192.168.3.239:8000")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        let body = jsonString
-        //编码POST数据
-        //let postData = body.dataUsingEncoding( NSUTF8StringEncoding )
-        //request.httpBody = postData
-        NSURLConnection.sendAsynchronousRequest(request, queue: OperationQueue.main) {(response, data, error) in
-            guard let data = data else { return }
-            print(String(data: data, encoding: .utf8)!)
-        }
     }
 }
