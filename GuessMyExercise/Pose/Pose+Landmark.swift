@@ -75,5 +75,15 @@ extension Pose {
             context.addEllipse(in: rectangle)
             context.drawPath(using: CGPathDrawingMode.fillStroke)
         }
+        
+        var plDectionary:[String: Any]{
+            return [
+                "name": name,
+                "location": [
+                    "x":location.x,
+                    "y": location.y
+                ],
+            ]
+        }
     }
 }

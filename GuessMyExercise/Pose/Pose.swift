@@ -14,20 +14,20 @@ typealias Observation = VNHumanBodyPoseObservation
 /// a wireframe.
 /// - Tag: Pose
 struct Pose {
-    /// The names and locations of the significant points on a human body.
-    private let landmarks: [Landmark]
+    /// 人体上重要点的名称和位置。
+    let landmarks: [Landmark]
 
-    /// A list of lines between landmarks for drawing a wireframe.
-    private var connections: [Connection]!
+    /// 用于绘制线框的地标之间的线的列表。
+    var connections: [Connection]!
 
-    /// The locations of the pose's landmarks as a multiarray.
+    /// 姿势的地标的位置作为一个多重数组。
     /// - Tag: multiArray
     let multiArray: MLMultiArray?
 
-    /// A rough approximation of the landmarks' area.
+    /// 对地标面积的粗略估计。
     let area: CGFloat
 
-    /// Creates a `Pose` for each human body pose observation in the array.
+    /// 为数组中的每个人体姿势观察创建一个“Pose”。
     /// - Parameter observations: An array of human body pose observations.
     /// - Returns: A `Pose` array.
     static func fromObservations(_ observations: [Observation]?) -> [Pose]? {

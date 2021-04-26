@@ -10,262 +10,298 @@ import Vision
 
 @available(iOS 14.0, *)
 class MainViewController: UIViewController {
-    /// The full-screen view that presents the pose on top of the video frames.
+    /// 显示视频帧顶部姿势的全屏视图
     @IBOutlet var imageView: UIImageView!
 
-    /// The stack that contains the labels at the middle of the leading edge.
+    /// 在前缘中间包含标签的堆栈
     @IBOutlet weak var labelStack: UIStackView!
 
-    /// The label that displays the model's exercise action prediction.
+    /// 显示模型的运动动作预测的标签。
     @IBOutlet weak var actionLabel: UILabel!
 
-    /// The label that displays the model's confidence in its prediction.
+    /// 显示模型对预测的信心的标签。
     @IBOutlet weak var confidenceLabel: UILabel!
 
-    /// The stack that contains the buttons at the bottom of the leading edge.
+    /// 在前缘底部包含按钮的堆栈。
     @IBOutlet weak var buttonStack: UIStackView!
 
-    /// The button users tap to show a summary view.
+    /// 用户点击按钮显示摘要视图
     @IBOutlet weak var summaryButton: UIButton!
 
-    /// The button users tap to toggle between the front- and back-facing
+    /// 用户点击该按钮可在正面和背面之间切换
     /// cameras.
     @IBOutlet weak var cameraButton: UIButton!
 
-    /// Captures the frames from the camera and creates a frame publisher.
+    /// 从相机捕获帧并创建帧发布器
     var videoCapture: VideoCapture!
 
-    /// Builds a chain of Combine publishers from a frame publisher.
+    /// 从框架发布服务器构建联合发布服务器链。
     ///
-    /// The video-processing chain provides the view controller with:
-    /// - Each video camera frame as a `CGImage`.
-    /// - A `Pose` array of any people `Vision` observed in that frame.
-    /// - Action predictions from the prominent person's poses over time.
+    /// 视频处理链为视图控制器提供:
+    /// - 每个摄像机帧都是一个“CGImage”。
+    /// - 在那一帧中观察到的任何人的“视觉”的“姿势”数组。
+    /// - 随着时间的推移，突出人物姿势的动作预测。
     var videoProcessingChain: VideoProcessingChain!
 
-    /// Maintains the aggregate time for each action the model predicts.
+    /// 维护模型预测的每个操作的聚合时间。
     /// - Tag: actionFrameCounts
     var actionFrameCounts = [String: Int]()
 }
 
 // MARK: - View Controller Events
 extension MainViewController {
-    /// Configures the main view after it loads.
+    /// 在主视图加载后配置它。
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // Disable the idle timer to prevent the screen from locking.
+        // 禁用空闲计时器以防止屏幕锁定。
         UIApplication.shared.isIdleTimerDisabled = true
 
-        // Round the corners of the stack and button views.
+        // 堆栈和按钮视图的圆角。
         let views = [labelStack, buttonStack, cameraButton, summaryButton]
         views.forEach { view in
             view?.layer.cornerRadius = 10
             view?.overrideUserInterfaceStyle = .dark
         }
 
-        // Set the view controller as the video-processing chain's delegate.
+        // 将视图控制器设置为视频处理链的代理。
         videoProcessingChain = VideoProcessingChain()
         videoProcessingChain.delegate = self
 
-        // Begin receiving frames from the video capture.
+        // 开始从视频捕获接收帧。
         videoCapture = VideoCapture()
         videoCapture.delegate = self
 
         updateUILabelsWithPrediction(.startingPrediction)
     }
 
-    /// Configures the video captures session with the device's orientation.
+    /// 使用设备的方向配置视频捕获会话
     ///
-    /// This is the app's first opportunity to retrieve the device's
-    /// physical orientation with its hardware sensors.
+    /// 这是该应用程序第一个利用硬件传感器获取设备的物理方位
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
 
-        // Update the device's orientation.
+        // 更新设备的方向。
         videoCapture.updateDeviceOrientation()
     }
 
-    /// Notifies the video capture when the device rotates to a new orientation.
+    /// 当设备旋转到新方向时通知视频捕获。
     override func viewWillTransition(to size: CGSize,
                                      with coordinator: UIViewControllerTransitionCoordinator) {
-        // Update the the camera's orientation to match the device's.
+        // 更新相机的方向以匹配设备的方向
         videoCapture.updateDeviceOrientation()
     }
 }
 
 // MARK: - Button Events
 extension MainViewController {
-    /// Toggles the video capture between the front- and back-facing cameras.
+    /// 在前置和后置摄像头之间切换视频捕获。
     @IBAction func onCameraButtonTapped(_: Any) {
         videoCapture.toggleCameraSelection()
     }
 
-    /// Presents a summary view of the user's actions and their total times.
+    /// 显示用户操作及其总时间的摘要视图。
     @IBAction func onSummaryButtonTapped() {
         let main = UIStoryboard(name: "Main", bundle: nil)
 
-        // Get the view controller based on its name.
+        // 根据视图控制器的名称获取视图控制器。
         let vcName = "SummaryViewController"
         let viewController = main.instantiateViewController(identifier: vcName)
 
-        // Cast it as a `SummaryViewController`.
+        // 将其转换为“SummaryViewController”。
         guard let summaryVC = viewController as? SummaryViewController else {
             fatalError("Couldn't cast the Summary View Controller.")
         }
 
-        // Copy the current actions times to the summary view.
+        // 将当前操作时间复制到摘要视图。
         summaryVC.actionFrameCounts = actionFrameCounts
 
-        // Define the presentation style for the summary view.
+        // 定义摘要视图的显示样式。
         modalPresentationStyle = .popover
         modalTransitionStyle = .coverVertical
 
-        // Reestablish the video-processing chain when the user dismisses the
-        // summary view.
+        // 当用户取消摘要视图时，重新建立视频处理链。
         summaryVC.dismissalClosure = {
-            // Resume the video feed by enabling the camera when the summary
-            // view goes away.
+            // 当摘要视图消失时，通过启用相机恢复视频馈送。
             self.videoCapture.isEnabled = true
         }
 
-        // Present the summary view to the user.
+        // 向用户显示摘要视图。
         present(summaryVC, animated: true)
 
-        // Stop the video feed by disabling the camera while showing the summary
-        // view.
+        // 通过在显示摘要视图时禁用相机来停止视频馈送。
         videoCapture.isEnabled = false
     }
 }
 
 // MARK: - Video Capture Delegate
 extension MainViewController: VideoCaptureDelegate {
-    /// Receives a video frame publisher from a video capture.
+    /// 从视频捕获接收视频帧发布者。
     /// - Parameters:
-    ///   - videoCapture: A `VideoCapture` instance.
-    ///   - framePublisher: A new frame publisher from the video capture.
+    ///   - videoCapture: A `VideoCapture` 实例.
+    ///   - framePublisher: 视频捕获中的新帧发布者
     func videoCapture(_ videoCapture: VideoCapture,
                       didCreate framePublisher: FramePublisher) {
         updateUILabelsWithPrediction(.startingPrediction)
         
-        // Build a new video-processing chain by assigning the new frame publisher.
+        // 通过分配新的帧发布器来构建新的视频处理链。
         videoProcessingChain.upstreamFramePublisher = framePublisher
     }
 }
 
 // MARK: - video-processing chain Delegate
 extension MainViewController: VideoProcessingChainDelegate {
-    /// Receives an action prediction from a video-processing chain.
+    /// 从视频处理链接收动作预测。
     /// - Parameters:
-    ///   - chain: A video-processing chain.
-    ///   - actionPrediction: An `ActionPrediction`.
-    ///   - duration: The span of time the prediction represents.
+    ///   - chain: 视频处理链.
+    ///   - actionPrediction: 行动预测。
+    ///   - duration: 预测所代表的时间跨度。
     /// - Tag: detectedAction
     func videoProcessingChain(_ chain: VideoProcessingChain,
                               didPredict actionPrediction: ActionPrediction,
                               for frameCount: Int) {
 
         if actionPrediction.isModelLabel {
-            // Update the total number of frames for this action.
+            // 更新此操作的总帧数。
             addFrameCount(frameCount, to: actionPrediction.label)
         }
 
-        // Present the prediction in the UI.
+        // 在UI中显示预测。
         updateUILabelsWithPrediction(actionPrediction)
     }
 
-    /// Receives a frame and any poses in that frame.
+    /// 接收一帧和该帧中的任何姿势。
     /// - Parameters:
-    ///   - chain: A video-processing chain.
-    ///   - poses: A `Pose` array.
-    ///   - frame: A video frame as a `CGImage`.
+    ///   - chain: 视频处理链。
+    ///   - poses: “姿势”数组。
+    ///   - frame: 作为“CGImage”的视频帧。
     func videoProcessingChain(_ chain: VideoProcessingChain,
                               didDetect poses: [Pose]?,
                               in frame: CGImage) {
-        // Render the poses on a different queue than pose publisher.
+        // 在与pose publisher不同的队列上渲染pose。
         DispatchQueue.global(qos: .userInteractive).async {
-            // Draw the poses onto the frame.
+            
+            if poseArray.count < 2 {
+                //获取的数据转换为json
+                poseArrayToJsonList(poses)
+            }
+            // 把姿势画到框架上
             self.drawPoses(poses, onto: frame)
         }
     }
 }
 
+//获取的pose数据转换为 json array
+var poseArray = [String]()
+var landmarkItemArray = [String]()
+//遍历pose数组
+private func poseArrayToJsonList(_ poses: [Pose]?){
+    guard let poses = poses else { return }
+    
+    for poseItem in poses {
+        let landmarkList = poseItem.landmarks
+        for item in landmarkList {
+            let itemData = item
+            
+            guard let jsonData = try? JSONSerialization.data(withJSONObject: itemData.plDectionary, options: .prettyPrinted) else { return }
+            
+            guard let jsonString = String(data: jsonData, encoding: .utf8) else { return }
+            
+            poseArray.append(jsonString);
+            //print("item json = \(jsonString)")
+        }
+    }
+    print("item json = \(poseArray)")
+}
+
+
+
 // MARK: - Helper methods
 extension MainViewController {
-    /// Add the incremental duration to an action's total time.
+    /// 将增量持续时间添加到操作的总时间中。
     /// - Parameters:
-    ///   - actionLabel: The name of the action.
-    ///   - duration: The incremental duration of the action.
+    ///   - actionLabel: 操作的名称。
+    ///   - duration: 操作的增量持续时间。
     private func addFrameCount(_ frameCount: Int, to actionLabel: String) {
-        // Add the new duration to the current total, if it exists.
+        // 将新的持续时间添加到当前总计（如果存在）。
         let totalFrames = (actionFrameCounts[actionLabel] ?? 0) + frameCount
 
-        // Assign the new total frame count for this action.
+        // 为此操作指定新的总帧计数。
         actionFrameCounts[actionLabel] = totalFrames
     }
 
-    /// Updates the user interface's labels with the prediction and its
-    /// confidence.
+    /// 使用预测及其可信度更新用户界面的标签。
     /// - Parameters:
-    ///   - label: The prediction label.
-    ///   - confidence: The prediction's confidence value.
+    ///   - label: 预测标签.
+    ///   - confidence: 预测的置信值
     private func updateUILabelsWithPrediction(_ prediction: ActionPrediction) {
-        // Update the UI's prediction label on the main thread.
+        // 在主线程上更新UI的预测标签。
         DispatchQueue.main.async { self.actionLabel.text = prediction.label }
 
-        // Update the UI's confidence label on the main thread.
+        // 在主线程上更新UI的置信度标签。
         let confidenceString = prediction.confidenceString ?? "Observing..."
         DispatchQueue.main.async { self.confidenceLabel.text = confidenceString }
     }
 
-    /// Draws poses as wireframes on top of a frame, and updates the user
-    /// interface with the final image.
+    /// 将姿势绘制为帧顶部的线框，并使用最终图像更新用户界面。
     /// - Parameters:
     ///   - poses: An array of human body poses.
     ///   - frame: An image.
     /// - Tag: drawPoses
     private func drawPoses(_ poses: [Pose]?, onto frame: CGImage) {
-        // Create a default render format at a scale of 1:1.
+        // 以1:1的比例创建默认渲染格式。
         let renderFormat = UIGraphicsImageRendererFormat()
         renderFormat.scale = 1.0
 
-        // Create a renderer with the same size as the frame.
+        // 创建与帧大小相同的渲染器。
         let frameSize = CGSize(width: frame.width, height: frame.height)
         let poseRenderer = UIGraphicsImageRenderer(size: frameSize,
                                                    format: renderFormat)
 
-        // Draw the frame first and then draw pose wireframes on top of it.
+        // 首先绘制帧，然后在其上绘制姿势线框。
         let frameWithPosesRendering = poseRenderer.image { rendererContext in
-            // The`UIGraphicsImageRenderer` instance flips the Y-Axis presuming
-            // we're drawing with UIKit's coordinate system and orientation.
+            // “UIGraphicsSimageRender”实例会翻转Y轴，假设我们正在使用UIKit的坐标系和方向绘制。
             let cgContext = rendererContext.cgContext
 
-            // Get the inverse of the current transform matrix (CTM).
+            // 得到电流变换矩阵的逆矩阵。
             let inverse = cgContext.ctm.inverted()
 
-            // Restore the Y-Axis by multiplying the CTM by its inverse to reset
-            // the context's transform matrix to the identity.
+            // 通过将CTM乘以其逆值来恢复Y轴，从而将上下文的变换矩阵重置为恒等式。
             cgContext.concatenate(inverse)
 
-            // Draw the camera image first as the background.
+            // 首先绘制相机图像作为背景。
             let imageRectangle = CGRect(origin: .zero, size: frameSize)
             cgContext.draw(frame, in: imageRectangle)
 
-            // Create a transform that converts the poses' normalized point
-            // coordinates `[0.0, 1.0]` to properly fit the frame's size.
+            // 创建一个变换，将姿势的标准化点坐标`[0.0，1.0]`转换为适合帧的大小。
             let pointTransform = CGAffineTransform(scaleX: frameSize.width,
                                                    y: frameSize.height)
 
             guard let poses = poses else { return }
 
-            // Draw all the poses Vision found in the frame.
+            // 绘制框架中的所有姿势。
             for pose in poses {
-                // Draw each pose as a wireframe at the scale of the image.
+                // 以图像的比例将每个姿势绘制为线框。
                 pose.drawWireframeToContext(cgContext, applying: pointTransform)
             }
         }
 
-        // Update the UI's full-screen image view on the main thread.
+        // 在主线程上更新UI的全屏图像视图。
         DispatchQueue.main.async { self.imageView.image = frameWithPosesRendering }
+    }
+    
+    //访问http api -- 未完成
+    func requestHttpServer (_ jsonString:String) {
+        let url = URL(string: "http://192.168.3.239:8000")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let body = jsonString
+        //编码POST数据
+        //let postData = body.dataUsingEncoding( NSUTF8StringEncoding )
+        //request.httpBody = postData
+        NSURLConnection.sendAsynchronousRequest(request, queue: OperationQueue.main) {(response, data, error) in
+            guard let data = data else { return }
+            print(String(data: data, encoding: .utf8)!)
+        }
     }
 }
