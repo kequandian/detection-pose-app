@@ -223,11 +223,12 @@ extension MainViewController: VideoProcessingChainDelegate {
     }
 }
 
-//获取的pose数据转换为 json array
-var poseArray = [String]()
 //遍历pose数组
 private func poseArrayToJsonList(_ poses: [Pose]?){
     guard let poses = poses else { return }
+    
+    //获取的pose数据转换为 json array
+    var poseArray = [String]()
     
     for poseItem in poses {
         let landmarkList = poseItem.landmarks
@@ -251,7 +252,9 @@ func requestHttpServer (_ jsonString: [String]) {
     
     let apiUrl = localData.string(forKey: "apiUrl")! as NSString
     
-    if(apiUrl.length == 0 || apiUrl == "zccv" || jsonString.count == 0){
+    //let apiUrl = "http://192.168.3.121:3002/api/detectionpose"
+    
+    if(apiUrl.length == 0 || apiUrl == "zccv" || jsonString.count == 0 || jsonString.isEmpty){
         return
     }
     

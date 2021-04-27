@@ -1,4 +1,4 @@
-# See LICENSE folder for this sample’s licensing information.
+﻿# See LICENSE folder for this sample’s licensing information.
 #
 # Apple sample code gitignore configuration.
 
@@ -19,3 +19,7 @@ xcuserdata/
 
 **/*.playground/playground.xcworkspace/xcshareddata/*
 !**/*.playground/playground.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+/node_modules
+
+/pose-api/node_modules
+/pose-api/package-lock.json
