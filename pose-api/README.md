@@ -5,7 +5,7 @@ npm install
 
 ### 运行api (访问端口为3002)
 ```
-node api/poseHandleApi.js
+node api/detectionpose
 ```
 
 ### API
