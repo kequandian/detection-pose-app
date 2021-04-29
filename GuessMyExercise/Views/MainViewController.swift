@@ -78,6 +78,9 @@ extension MainViewController {
         videoCapture.delegate = self
 
         updateUILabelsWithPrediction(.startingPrediction)
+        
+        //设置默认api
+        localData.setValue("http://192.168.3.121:3002/api/detectionpose", forKey: "apiUrl")
     }
 
     /// 使用设备的方向配置视频捕获会话
@@ -145,7 +148,8 @@ extension MainViewController {
                                     message: "", preferredStyle: .alert)
         alertController.addTextField {
             (textField: UITextField!) -> Void in
-            textField.placeholder = "请输入API"
+            //textField.placeholder = "请输入API"
+            textField.text = localData.string(forKey: "apiUrl")
         }
         let cancelAction = UIAlertAction(title: "取消", style: .cancel, handler: nil)
         let okAction = UIAlertAction(title: "保存", style: .default, handler: {

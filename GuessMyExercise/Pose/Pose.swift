@@ -63,16 +63,16 @@ struct Pose {
         buildConnections()
     }
 
-    /// Draws all the valid connections and landmarks of the wireframe.
+    /// 绘制线框的所有有效连接和地标。
     /// - Parameters:
-    ///   - context: A context the method uses to draw the wireframe.
-    ///   - transform: A transform that modifies the point locations.
+    ///   - context: 方法用于绘制线框的上下文
+    ///   - transform: 修改点位置的变换。
     /// - Tag: drawWireframeToContext
     func drawWireframeToContext(_ context: CGContext,
                                 applying transform: CGAffineTransform? = nil) {
         let scale = drawingScale
 
-        // Draw the connection lines first.
+        // 先画连接线。
         connections.forEach {
             line in line.drawToContext(context,
                                        applying: transform,
@@ -80,7 +80,7 @@ struct Pose {
 
         }
 
-        // Draw the landmarks on top of the lines' endpoints.
+        // 在直线端点的顶部绘制地标。
         landmarks.forEach { landmark in
             landmark.drawToContext(context,
                                    applying: transform,
